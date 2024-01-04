@@ -1,7 +1,8 @@
 import express from "express";
 import bodyParser from "body-parser";
 import ejs from "ejs";
-import mongoose from "mongoose";
+import mongoose, { Mongoose } from "mongoose";
+import encrypt from "mongoose-encryption";
 
 const port = 3000;
 const app = express();
@@ -12,10 +13,13 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 mongoose.connect("mongodb://localhost:27017/userDB", { useNewUrlParser: true });
 
-const userSchema = {
+const userSchema = new mongoose.Schema({
   email: String,
   password: String,
-};
+});
+
+const secret = "Thisisourlittlesecret.";
+userSchema.plugin(encrypt, { secret: secret, encryptedFields: ["password"] });
 
 const User = new mongoose.model("User", userSchema);
 
@@ -45,11 +49,6 @@ app.post("/register", async (req, res) => {
     res.redirect("/register");
   }
 });
-
-// app.post("/login", async (req, res) => {
-//   const username = req.body.username;
-//   const password = req.body.password;
-// });
 
 app.post("/login", async (req, res) => {
   const username = req.body.username;
