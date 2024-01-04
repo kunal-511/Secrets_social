@@ -1,10 +1,11 @@
 import dotenv from "dotenv";
 dotenv.config();
+import md5 from "md5";
 import express from "express";
 import bodyParser from "body-parser";
 import ejs from "ejs";
 import mongoose, { Mongoose } from "mongoose";
-import encrypt from "mongoose-encryption";
+//import encrypt from "mongoose-encryption"; now using HASH so not required
 
 const port = 3000;
 const app = express();
@@ -22,7 +23,7 @@ const userSchema = new mongoose.Schema({
   password: String,
 });
 
-userSchema.plugin(encrypt, { secret: secret, encryptedFields: ["password"] });
+// userSchema.plugin(encrypt, { secret: secret, encryptedFields: ["password"] }); now using HASH so not required
 
 const User = new mongoose.model("User", userSchema);
 
@@ -41,7 +42,7 @@ app.get("/register", (req, res) => {
 app.post("/register", async (req, res) => {
   const newUser = new User({
     email: req.body.username,
-    password: req.body.password,
+    password: md5(req.body.password),
   });
 
   try {
@@ -55,7 +56,7 @@ app.post("/register", async (req, res) => {
 
 app.post("/login", async (req, res) => {
   const username = req.body.username;
-  const password = req.body.password;
+  const password = md5(req.body.password);
 
   try {
     const foundUser = await User.findOne({ email: username }).exec(); // Using .exec() to execute the query
