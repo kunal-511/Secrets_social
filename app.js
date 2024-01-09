@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
-import md5 from "md5";
+//import md5 from "md5";
+import bcrypt from "bcrypt";
 import express from "express";
 import bodyParser from "body-parser";
 import ejs from "ejs";
@@ -11,6 +12,7 @@ const port = 3000;
 const app = express();
 console.log(process.env.API_KEY);
 const secret = process.env.SECRET;
+const saltRounds = 10;
 
 app.use(express.static("public"));
 app.set("view engine", "ejs");
@@ -40,29 +42,41 @@ app.get("/register", (req, res) => {
 });
 
 app.post("/register", async (req, res) => {
-  const newUser = new User({
-    email: req.body.username,
-    password: md5(req.body.password),
-  });
+  bcrypt.hash(req.body.password, saltRounds, async function (err, hash) {
+    const newUser = new User({
+      email: req.body.username,
+      password: hash,
+    });
 
-  try {
-    await newUser.save(); // Using async/await to handle the promise returned by save()
-    res.render("secrets");
-  } catch (err) {
-    console.error(err);
-    res.redirect("/register");
-  }
+    try {
+      await newUser.save();
+      res.render("secrets");
+    } catch (err) {
+      console.error(err);
+      res.redirect("/register");
+    }
+  });
 });
 
 app.post("/login", async (req, res) => {
   const username = req.body.username;
-  const password = md5(req.body.password);
+  //const password = md5(req.body.password);
+  const password = req.body.password;
 
   try {
     const foundUser = await User.findOne({ email: username }).exec(); // Using .exec() to execute the query
 
-    if (foundUser && foundUser.password === password) {
-      res.render("secrets");
+    //  if (foundUser && foundUser.password === password) {
+    if (foundUser) {
+      bcrypt.compare(
+        req.body.password,
+        foundUser.password,
+        function (err, result) {
+          if (result === true) {
+            res.render("secrets");
+          }
+        }
+      );
     } else {
       res.redirect("/login"); // Redirect if username or password is incorrect
     }
