@@ -32,9 +32,7 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-mongoose.connect("mongodb://localhost:27017/userDB", {
-  useNewUrlParser: true,
-});
+mongoose.connect("mongodb://localhost:27017/userDB");
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
@@ -69,6 +67,13 @@ app.get("/secrets", (req, res) => {
   }
 });
 
+app.get("/logout", (req, res) => {
+  req.logout(req.user, (err) => {
+    if (err) return next(err);
+    res.redirect("/");
+  });
+});
+
 app.post("/register", async (req, res) => {
   User.register(
     { username: req.body.username },
@@ -87,31 +92,20 @@ app.post("/register", async (req, res) => {
 });
 
 app.post("/login", async (req, res) => {
-  const username = req.body.username;
-  //const password = md5(req.body.password);
-  const password = req.body.password;
+  const user = new User({
+    username: req.body.username,
+    password: req.body.password,
+  });
 
-  try {
-    const foundUser = await User.findOne({ email: username }).exec(); // Using .exec() to execute the query
-
-    //  if (foundUser && foundUser.password === password) {
-    if (foundUser) {
-      bcrypt.compare(
-        req.body.password,
-        foundUser.password,
-        function (err, result) {
-          if (result === true) {
-            res.render("secrets");
-          }
-        }
-      );
+  req.login(user, function (err) {
+    if (err) {
+      console.log(err);
     } else {
-      res.redirect("/login"); // Redirect if username or password is incorrect
+      passport.authenticate("local")(req, res, function () {
+        res.redirect("/secrets");
+      });
     }
-  } catch (err) {
-    console.error(err);
-    res.redirect("/login");
-  }
+  });
 });
 
 app.listen(port, function () {
