@@ -9,6 +9,10 @@ import mongoose, { Mongoose } from "mongoose";
 import session from "express-session";
 import passport from "passport";
 import passportLocalMoongoose from "passport-local-mongoose";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+
+import findOrCreate from "mongoose-findorcreate";
+// GoogleStrategy.Strategy();
 //import encrypt from "mongoose-encryption"; now using HASH so not required
 
 const port = 3000;
@@ -40,6 +44,7 @@ const userSchema = new mongoose.Schema({
 
 // userSchema.plugin(encrypt, { secret: secret, encryptedFields: ["password"] }); now using HASH so not required
 userSchema.plugin(passportLocalMoongoose);
+userSchema.plugin(findOrCreate);
 
 const User = new mongoose.model("User", userSchema);
 
@@ -47,10 +52,28 @@ passport.use(User.createStrategy());
 passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
 
+const strategy = new GoogleStrategy(
+  {
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    callbackURL: "http://localhost:3000/auth/google/callback",
+    userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
+  },
+  function (accessToken, refreshToken, profile, cb) {
+    User.findOrCreate({ googleId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+);
+
+passport.use(strategy);
+
 app.get("/", (req, res) => {
   res.render("home");
 });
-
+app.get("/auth/google", (req, res) => {
+  passport.authenticate("google", { scope: ["profile"] });
+});
 app.get("/login", (req, res) => {
   res.render("login");
 });
