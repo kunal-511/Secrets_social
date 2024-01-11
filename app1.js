@@ -18,7 +18,7 @@ import findOrCreate from "mongoose-findorcreate";
 const port = 3000;
 const app = express();
 //console.log(process.env.API_KEY);
-const secret = process.env.SECRET;
+// const secret = process.env.SECRET;
 // const saltRounds = 10;
 
 app.use(express.static("public"));
@@ -40,6 +40,7 @@ mongoose.connect("mongodb://localhost:27017/userDB");
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
+  googleId: String,
 });
 
 // userSchema.plugin(encrypt, { secret: secret, encryptedFields: ["password"] }); now using HASH so not required
@@ -49,17 +50,30 @@ userSchema.plugin(findOrCreate);
 const User = new mongoose.model("User", userSchema);
 
 passport.use(User.createStrategy());
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
+// passport.serializeUser(User.serializeUser());
+// passport.deserializeUser(User.deserializeUser());
+
+passport.serializeUser(function (user, done) {
+  done(null, user.id);
+});
+passport.deserializeUser(async function (id, done) {
+  try {
+    const user = await User.findById(id).exec();
+    done(null, user);
+  } catch (err) {
+    done(err, null);
+  }
+});
 
 const strategy = new GoogleStrategy(
   {
     clientID: process.env.CLIENT_ID,
     clientSecret: process.env.CLIENT_SECRET,
-    callbackURL: "http://localhost:3000/auth/google/callback",
+    callbackURL: "http://localhost:3000/auth/google/secrets",
     userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
   },
   function (accessToken, refreshToken, profile, cb) {
+    console.log(profile);
     User.findOrCreate({ googleId: profile.id }, function (err, user) {
       return cb(err, user);
     });
@@ -71,9 +85,18 @@ passport.use(strategy);
 app.get("/", (req, res) => {
   res.render("home");
 });
-app.get("/auth/google", (req, res) => {
-  passport.authenticate("google", { scope: ["profile"] });
-});
+app.get(
+  "/auth/google",
+  passport.authenticate("google", { scope: ["profile"] })
+);
+
+app.get(
+  "/auth/google/secrets",
+  passport.authenticate("google", { failureRedirect: "/login" }),
+  (req, res) => {
+    res.redirect("/secrets");
+  }
+);
 app.get("/login", (req, res) => {
   res.render("login");
 });
