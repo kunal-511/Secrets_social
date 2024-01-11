@@ -41,6 +41,7 @@ const userSchema = new mongoose.Schema({
   email: String,
   password: String,
   googleId: String,
+  secret: String,
 });
 
 // userSchema.plugin(encrypt, { secret: secret, encryptedFields: ["password"] }); now using HASH so not required
@@ -106,11 +107,15 @@ app.get("/register", (req, res) => {
 });
 
 app.get("/secrets", (req, res) => {
-  if (req.isAuthenticated()) {
-    res.render("secrets");
-  } else {
-    res.redirect("/login");
-  }
+  User.find({ secret: { $ne: null } }, function (err, foundUser) {
+    if (err) {
+      console.log(err);
+    } else {
+      if (foundUser) {
+        res.render("secrets", { userWithSecrets: foundUser });
+      }
+    }
+  });
 });
 
 app.get("/logout", (req, res) => {
@@ -119,7 +124,13 @@ app.get("/logout", (req, res) => {
     res.redirect("/");
   });
 });
-
+app.get("/submit", (req, res) => {
+  if (req.isAuthenticated()) {
+    res.render("submit");
+  } else {
+    res.redirect("/login");
+  }
+});
 app.post("/register", async (req, res) => {
   User.register(
     { username: req.body.username },
@@ -150,6 +161,25 @@ app.post("/login", async (req, res) => {
       passport.authenticate("local")(req, res, function () {
         res.redirect("/secrets");
       });
+    }
+  });
+});
+
+app.post("/submit", (req, res) => {
+  const submittedSecret = req.body.secret;
+
+  console.log(req.user.id);
+
+  User.findById(req.user.id, function (err, foundUser) {
+    if (err) {
+      console.log(err);
+    } else {
+      if (foundUser) {
+        foundUser.secret = submittedSecret;
+        foundUser.save(function () {
+          res.redirect("/secrets");
+        });
+      }
     }
   });
 });
